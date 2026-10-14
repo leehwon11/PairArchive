@@ -1,5 +1,5 @@
 import { loadPair, latest, remove, removeFile, update } from '../supa.js';
-import { esc, $, $$, hydrate, imgTag, dday, confirmBox, guard, has, ink, themeBtn, HEART, toast, openModal } from '../ui.js';
+import { esc, $, $$, hydrate, imgTag, dday, confirmBox, guard, has, ink, themeBtn, HEART, toast, openModal, field, readForm, today, moodChart } from '../ui.js';
 import { tabs } from './shared.js';
 
 export default async function pairView(el, pid) {
@@ -104,7 +104,15 @@ export default async function pairView(el, pid) {
         <a href="#/pair/${pid}/ssul"><span style="color:#3f6283">썰</span> · <span style="color:var(--ink)">${esc(s?.title || '아직 없음')}</span></a>
         <a href="#/pair/${pid}/commission"><span style="color:#5a4a42">커미션</span> · <span style="color:var(--ink)">${esc(c ? (c.artist || '작가 미상') + ' · ' + (c.made_on || '') : '아직 없음')}</span></a>
       </div>
+    </div>
+    <div class="card">
+      <div class="row"><h3 class="grow">관계 온도</h3><button class="btn" data-act="mood">+ 기록</button></div>
+      <div class="muted">두 사람의 관계 온도를 1~10으로 기록해요. 시간이 흐를수록 그래프가 채워져요.</div>
+      ${(d.moods?.length) ? `<div class="mood-chart" style="overflow-x:auto">${moodChart(d.moods, a.color, b.color)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">${d.moods.slice(-5).reverse().map((m) => `<span class="badge" style="background:var(--soft)">${esc(m.date)} · ${m.mood}/10${m.note ? ' · ' + esc(m.note) : ''}</span>`).join('')}</div>`
+        : `<div class="muted" style="text-align:center;padding:16px 0">아직 기록이 없어요. 위 버튼으로 첫 관계 온도를 남겨보세요.</div>`}
     </div>`;
+
   hydrate(el);
   $(el, '[data-act=share]').onclick = async () => (await import('./sharelinks.js')).openShare(pid);
   // ── 대화창: 나레이션 → A → B … 게임처럼 ──
@@ -153,6 +161,36 @@ export default async function pairView(el, pid) {
     $$(el, `[data-heart="${k}"]`).forEach((x) => (x.innerHTML = HEART(+x.dataset.v <= aff[k] ? col : 'var(--sh)')));
     { const g = btn.closest('.hearts'); g.setAttribute('aria-label', g.getAttribute('aria-label').replace(/\d+\/10$/, aff[k] + '/10')); }
   }));
+
+  $(el, '[data-act=mood]')?.addEventListener('click', () => {
+    const m = openModal(`
+      <h2>관계 온도 기록</h2>
+      <form style="display:flex;flex-direction:column;gap:12px">
+        ${field('날짜', 'date', today(), { type: 'date' })}
+        <div class="field"><label for="mood-val">온도 (1~10)</label>
+          <div class="row" style="flex-wrap:nowrap;gap:12px">
+            <input id="mood-val" type="range" name="mood" min="1" max="10" value="5" style="flex:1;accent-color:var(--accent)">
+            <span class="game" id="mood-num" style="font-size:24px;width:36px;text-align:center">5</span>
+          </div>
+        </div>
+        ${field('메모 (선택)', 'note', '', { ph: '이 시점에 무슨 일이 있었는지' })}
+        <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-x>취소</button><button class="btn primary">저장</button></div>
+      </form>`);
+    const numEl = m.el.querySelector('#mood-num');
+    m.el.querySelector('#mood-val').oninput = (e) => { numEl.textContent = e.target.value; };
+    m.el.querySelector('[data-x]').onclick = m.close;
+    m.el.querySelector('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = readForm(e.target);
+      if (!f.date) return toast('날짜를 입력해주세요');
+      d.moods = d.moods || [];
+      d.moods.push({ date: f.date, mood: +f.mood, note: f.note || '' });
+      d.moods.sort((x, y) => x.date.localeCompare(y.date));
+      await guard(() => update('pairs', pid, { detail: d }), '기록했어요');
+      m.close();
+      pairView(el, pid);
+    };
+  });
 
   $(el, '[data-act=del]').onclick = async () => {
     if (!(await confirmBox('페어 삭제', `${a.name} × ${b.name} 페어와 두 캐릭터 프로필, 문답·썰·커미션이 모두 지워져요.`))) return;
