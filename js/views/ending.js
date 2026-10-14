@@ -1,5 +1,5 @@
 import { loadPair, update, upload, removeFile } from '../supa.js';
-import { esc, $, $$, openModal, field, readForm, confirmBox, guard, hydrate, imgTag, pickFiles, toast, ink, cropImage } from '../ui.js';
+import { esc, $, $$, openModal, field, readForm, confirmBox, guard, hydrate, imgTag, pickFiles, toast, ink, cropImage, enableDragSort } from '../ui.js';
 import { tabs, subHeader } from './shared.js';
 
 const KINDS = ['HAPPY', 'TRUE', 'NORMAL', 'BAD', 'IF'];
@@ -20,19 +20,18 @@ export default async function ending(el, pid) {
       ${subHeader({ pid, a, b, title: 'ENDING — 엔딩 도감', action: '<button class="btn primary" data-act="add">+ 엔딩</button>' })}
       ${tabs(pid, 'ending')}
       <div class="row"><span class="lab">COLLECTED</span><span class="game" style="font-size:20px">${open} / ${list.length}</span><span class="muted">미해금 엔딩은 잠긴 카드로 보여요</span></div>
-      ${list.length ? `<div class="gallery" style="counter-reset:none">${list.map((e, i) => `
-        <article class="frame ending ${e.open ? '' : 'locked'}" style="counter-increment:none">
+      ${list.length ? `<div class="gallery" id="end-list" style="counter-reset:none">${list.map((e, i) => `
+        <article class="frame ending drag-item ${e.open ? '' : 'locked'}" draggable="true" data-idx="${i}" style="counter-increment:none">
           <button type="button" class="shot" data-open="${i}" aria-label="${esc(e.title || '엔딩')} 보기" style="position:relative;aspect-ratio:4/3;background:linear-gradient(135deg, ${esc(a.color)}55, ${esc(b.color)}55)">
             ${e.image_path ? imgTag(e.image_path, e.title) : ''}
             ${e.open ? '' : '<span class="lockcover"><span class="game">LOCKED</span></span>'}
           </button>
           <div class="row" style="gap:6px">
+            <span class="drag-handle" aria-label="드래그하여 순서 변경" title="끌어서 순서 변경">⠿</span>
             <span class="badge" style="background:${esc(kindColor(e.kind, a, b))};color:${ink(kindColor(e.kind, a, b))}">${esc(e.kind || 'ENDING')}</span>
             <span class="game" style="font-size:17px;flex:1;min-width:0">${esc(e.title || '제목 없음')}</span>
           </div>
           <div class="row" style="gap:4px;justify-content:flex-end">
-            <button type="button" class="icon-btn" data-mv="${i}" data-d="-1" aria-label="앞으로" ${i === 0 ? 'disabled' : ''}>◀</button>
-            <button type="button" class="icon-btn" data-mv="${i}" data-d="1" aria-label="뒤로" ${i === list.length - 1 ? 'disabled' : ''}>▶</button>
             <button type="button" class="btn" data-edit="${i}" style="min-height:40px">수정</button>
           </div>
         </article>`).join('')}</div>`
@@ -41,11 +40,11 @@ export default async function ending(el, pid) {
     $(el, '[data-act=add]').onclick = () => edit(null);
     $$(el, '[data-edit]').forEach((x) => (x.onclick = () => edit(+x.dataset.edit)));
     $$(el, '[data-open]').forEach((x) => (x.onclick = () => view(+x.dataset.open)));
-    $$(el, '[data-mv]').forEach((x) => (x.onclick = async () => {
-      const i = +x.dataset.mv, j = i + +x.dataset.d;
-      [d.endings[i], d.endings[j]] = [d.endings[j], d.endings[i]];
+    const endList = $(el, '#end-list');
+    if (endList) enableDragSort(endList, '.drag-item', async (order) => {
+      d.endings = order.map((i) => d.endings[i]);
       draw(); await save();
-    }));
+    });
   };
 
   function view(i) {

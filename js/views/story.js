@@ -1,5 +1,5 @@
 import { loadPair, list, insert, update, remove } from '../supa.js';
-import { esc, $, $$, iconBtn, openModal, field, readForm, confirmBox, guard, md } from '../ui.js';
+import { esc, $, $$, iconBtn, openModal, field, readForm, confirmBox, guard, md, enableDragSort } from '../ui.js';
 import { tabs, subHeader } from './shared.js';
 
 export default async function story(el, pid) {
@@ -11,15 +11,14 @@ export default async function story(el, pid) {
     el.innerHTML = `
       ${subHeader({ pid, a: ctx.a, b: ctx.b, title: 'STORY — 챕터', action: '<button class="btn primary" data-act="add">+ 챕터 추가</button>' })}
       ${tabs(pid, 'story')}
-      ${rows.length ? `<div class="chapter-line">${rows.map((r, i) => `
-        <article class="card">
+      ${rows.length ? `<div class="chapter-line" id="ch-list">${rows.map((r, i) => `
+        <article class="card drag-item" draggable="true" data-idx="${i}">
           <span class="pin" style="background:${i === rows.length - 1 ? 'var(--wine)' : i % 2 ? ctx.b.color : ctx.a.color}"></span>
           <div class="row" style="gap:8px">
+            <span class="drag-handle" aria-label="드래그하여 순서 변경" title="끌어서 순서 변경">⠿</span>
             <span class="badge">${i + 1}장</span>
             <h3 class="grow">${esc(r.title || '제목 없음')}</h3>
             <span class="muted">${esc(r.period)}</span>
-            ${iconBtn('up', '위로', 'upArrow', '', `data-i="${i}"`)}
-            ${iconBtn('down', '아래로', 'downArrow', '', `data-i="${i}"`)}
             ${iconBtn('edit', '챕터 수정', 'edit', '', `data-i="${i}"`)}
             ${iconBtn('del', '챕터 삭제', 'del', 'del', `data-i="${i}"`)}
           </div>
@@ -34,16 +33,13 @@ export default async function story(el, pid) {
       if (!(await confirmBox('챕터 삭제', `“${r.title || '제목 없음'}” 챕터를 지울까요?`))) return;
       await guard(async () => { await remove('chapters', r.id); rows = rows.filter((x) => x !== r); draw(); }, '삭제했어요');
     }));
-    $$(el, '[data-act=up],[data-act=down]').forEach((b) => (b.onclick = () => move(+b.dataset.i, b.dataset.act === 'up' ? -1 : 1)));
+    const chList = $(el, '#ch-list');
+    if (chList) enableDragSort(chList, '.drag-item', async (order) => {
+      rows = order.map((i) => rows[i]);
+      draw();
+      await guard(() => Promise.all(rows.map((r, k) => (r.sort !== k ? update('chapters', r.id, { sort: (r.sort = k) }) : null))));
+    });
   };
-
-  async function move(i, dir) {
-    const j = i + dir;
-    if (j < 0 || j >= rows.length) return;
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-    draw();
-    await guard(() => Promise.all(rows.map((r, k) => (r.sort !== k ? update('chapters', r.id, { sort: (r.sort = k) }) : null))));
-  }
 
   function edit(r) {
     const m = openModal(`

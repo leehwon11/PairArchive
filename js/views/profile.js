@@ -1,5 +1,5 @@
 import { loadPair } from '../supa.js';
-import { esc, $, $$, hydrate, imgTag, ink } from '../ui.js';
+import { esc, $, $$, hydrate, imgTag, ink, openModal, radarChart } from '../ui.js';
 import { tabs, pairName } from './shared.js';
 
 export const PTABS = [['basic', '기본'], ['look', '외관 · 성격'], ['voice', '말투 · 습관'], ['taste', '취향'], ['past', '과거 · 관계'], ['outfit', '의상']];
@@ -13,6 +13,14 @@ export const TASTE = [
   ['place', '장소'], ['sound', '소리 · 음악'], ['hobby', '취미 · 놀이'], ['thing', '물건 · 선물'], ['person', '사람 유형'], ['etc', '그 외'],
 ];
 export const DEFAULT_SLIDERS = [{ l: '내향', r: '외향', v: 50 }, { l: '이성', r: '감성', v: 50 }, { l: '신중', r: '충동', v: 50 }];
+export const DEFAULT_STATS = [
+  { name: 'CHR', label: '매력', value: 50 },
+  { name: 'INT', label: '지능', value: 50 },
+  { name: 'STR', label: '체력', value: 50 },
+  { name: 'MEN', label: '정신력', value: 50 },
+  { name: 'SOC', label: '사교성', value: 50 },
+  { name: 'LCK', label: '운', value: 50 },
+];
 
 const tabState = {};
 const dash = (v) => (v && String(v).trim() ? esc(v) : '<span class="muted">—</span>');
@@ -115,6 +123,7 @@ export default async function profile(el, pid, which, cached) {
       <a class="btn" href="#/pair/${pid}/profile/${which}" style="background:${col};color:${ink(col)};border-color:${col};font-family:var(--hand);font-size:19px;font-weight:700" aria-current="page">${esc(c.name)}</a>
       <a class="btn" href="#/pair/${pid}/profile/${other}" style="font-family:var(--hand);font-size:19px">${esc(ctx[other].name)}</a>
       <a class="btn" href="#/pair/${pid}/profile/${which}/edit">프로필 수정</a>
+      <button class="btn" data-act="card" style="font-family:var(--game)">CARD</button>
     </div>
     ${tabs(pid, 'profile')}
     <div class="profile-head">
@@ -145,4 +154,31 @@ export default async function profile(el, pid, which, cached) {
     box.onclick = () => box.remove();
     document.body.appendChild(box);
   }));
+
+  $(el, '[data-act=card]')?.addEventListener('click', () => {
+    const stats = p.stats?.length ? p.stats : DEFAULT_STATS;
+    const total = stats.reduce((s, x) => s + x.value, 0);
+    const tags = (p.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+    const m = openModal(`
+      <div class="tcard" style="--card-color:${col}">
+        <div class="tcard-inner">
+          <div class="tcard-header">
+            <span class="tcard-rank game">${p.kind || 'OC'}</span>
+            <span class="tcard-total game">${total}<small>/${stats.length * 100}</small></span>
+          </div>
+          <div class="tcard-portrait">${imgTag(c.image_path, c.name) || `<span style="font-size:48px;opacity:.3">${esc(c.name[0] || '?')}</span>`}</div>
+          <div class="tcard-name">
+            <h2 class="game">${esc(c.name)}</h2>
+            ${p.alias ? `<div class="tcard-alias">「${esc(p.alias)}」</div>` : ''}
+          </div>
+          <div class="tcard-chart">${radarChart(stats, col, 220)}</div>
+          <div class="tcard-stats">${stats.map((s) => `<div class="tcard-stat"><span class="game">${esc(s.name)}</span><div class="tcard-bar"><div style="width:${s.value}%;background:${col}"></div></div><span class="game">${s.value}</span></div>`).join('')}</div>
+          ${tags.length ? `<div class="tcard-tags">${tags.slice(0, 5).map((t) => `<span class="badge" style="background:${col};color:${ink(col)}">#${esc(t)}</span>`).join('')}</div>` : ''}
+          ${p.line ? `<div class="tcard-quote">"${esc(p.line)}"</div>` : ''}
+        </div>
+      </div>
+      <div class="row" style="justify-content:center;gap:10px"><button class="btn primary" data-x>닫기</button></div>`, { wide: true });
+    hydrate(m.el);
+    m.el.querySelector('[data-x]').onclick = m.close;
+  });
 }

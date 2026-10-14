@@ -169,6 +169,107 @@ export function openTheme() {
 export const themeBtn = () => `<button type="button" class="btn" data-theme-open aria-label="배경 테마 바꾸기">THEME</button>`;
 export const HEART = (fill) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z" fill="${fill}"/></svg>`;
 
+// ── 레이더 차트 (6각형 스탯) ──
+export function radarChart(stats, color, size = 200) {
+  const cx = size / 2, cy = size / 2, r = size * 0.38;
+  const n = stats.length || 1;
+  const angle = (i) => (Math.PI * 2 * i) / n - Math.PI / 2;
+  const pt = (i, pct) => {
+    const a = angle(i), d = r * (pct / 100);
+    return [cx + d * Math.cos(a), cy + d * Math.sin(a)];
+  };
+  const gridLines = [25, 50, 75, 100].map((p) => {
+    const pts = Array.from({ length: n }, (_, i) => pt(i, p).join(',')).join(' ');
+    return `<polygon points="${pts}" fill="none" stroke="var(--sh)" stroke-width="1" opacity=".6"/>`;
+  }).join('');
+  const axes = Array.from({ length: n }, (_, i) => {
+    const [x, y] = pt(i, 100);
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--sh)" stroke-width="1"/>`;
+  }).join('');
+  const dataPts = Array.from({ length: n }, (_, i) => pt(i, stats[i].value).join(',')).join(' ');
+  const labels = Array.from({ length: n }, (_, i) => {
+    const [x, y] = pt(i, 118);
+    const s = stats[i];
+    return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="var(--game)" font-size="12" fill="var(--ink)">${esc(s.label)}</text><text x="${x}" y="${y + 14}" text-anchor="middle" font-family="var(--body)" font-size="10" fill="var(--mute)">${s.value}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="max-width:100%">
+    ${gridLines}${axes}
+    <polygon points="${dataPts}" fill="${color}44" stroke="${color}" stroke-width="2.5"/>
+    ${Array.from({ length: n }, (_, i) => { const [x, y] = pt(i, stats[i].value); return `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="#fff" stroke-width="2"/>`; }).join('')}
+    ${labels}
+  </svg>`;
+}
+
+// ── 무드 미니 차트 (SVG 라인) ──
+export function moodChart(moods, colA, colB, width = 600, height = 140) {
+  if (!moods.length) return '';
+  const pad = { l: 36, r: 12, t: 16, b: 24 };
+  const w = width - pad.l - pad.r, h = height - pad.t - pad.b;
+  const n = moods.length;
+  const x = (i) => pad.l + (n === 1 ? w / 2 : (i / (n - 1)) * w);
+  const y = (v) => pad.t + h - ((v - 1) / 9) * h;
+  const line = moods.map((m, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(m.mood).toFixed(1)}`).join('');
+  const yGuides = [1, 5, 10].map((v) => `<line x1="${pad.l}" y1="${y(v)}" x2="${width - pad.r}" y2="${y(v)}" stroke="var(--sh)" stroke-width="1"/><text x="${pad.l - 6}" y="${y(v)}" text-anchor="end" dominant-baseline="central" font-size="10" fill="var(--mute)">${v}</text>`).join('');
+  const grad = `<defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${colA}"/><stop offset="100%" stop-color="${colB}"/></linearGradient></defs>`;
+  const dots = moods.map((m, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(m.mood).toFixed(1)}" r="5" fill="url(#mg)" stroke="#fff" stroke-width="2" data-mi="${i}"><title>${esc(m.date)} · ${m.mood}/10${m.note ? '\n' + m.note : ''}</title></circle>`).join('');
+  const labels = n <= 12 ? moods.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${height - 4}" text-anchor="middle" font-size="9" fill="var(--mute)">${m.date.slice(5)}</text>`).join('') : '';
+  return `<svg viewBox="0 0 ${width} ${height}" width="${width}" style="max-width:100%;height:auto">
+    ${grad}${yGuides}
+    <path d="${line}" fill="none" stroke="url(#mg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}${labels}
+  </svg>`;
+}
+
+// ── 드래그 정렬 ──
+export function enableDragSort(container, itemSel, onReorder) {
+  let dragged = null, placeholder = null;
+  const items = () => [...container.querySelectorAll(itemSel)];
+  container.addEventListener('dragstart', (e) => {
+    const item = e.target.closest(itemSel);
+    if (!item) return;
+    dragged = item;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = item.offsetHeight + 'px';
+  });
+  container.addEventListener('dragend', () => {
+    if (dragged) dragged.classList.remove('dragging');
+    if (placeholder?.parentNode) placeholder.remove();
+    dragged = null; placeholder = null;
+  });
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragged) return;
+    const afterEl = getDragAfter(container, itemSel, e.clientY);
+    if (afterEl) container.insertBefore(placeholder, afterEl);
+    else container.appendChild(placeholder);
+  });
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!dragged || !placeholder?.parentNode) return;
+    container.insertBefore(dragged, placeholder);
+    placeholder.remove();
+    dragged.classList.remove('dragging');
+    const newOrder = items().map((el) => +el.dataset.idx);
+    onReorder(newOrder);
+    dragged = null;
+  });
+}
+function getDragAfter(container, sel, y) {
+  const els = [...container.querySelectorAll(sel + ':not(.dragging)')];
+  let closest = null, closestOff = Number.NEGATIVE_INFINITY;
+  for (const el of els) {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOff) { closestOff = offset; closest = el; }
+  }
+  return closest;
+}
+
 // ── 사진 자르기 · 위치 조절 ──
 // cropImage(file, { aspect: 3/4, round: false, title }) → 잘린 File (취소하면 null)
 export function cropImage(file, { aspect = 3 / 4, round = false, title = '사진 자르기' } = {}) {

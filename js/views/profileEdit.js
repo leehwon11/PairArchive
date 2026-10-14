@@ -1,6 +1,6 @@
 import { loadPair, update, upload, removeFile } from '../supa.js';
 import { esc, $, $$, field, readForm, hydrate, imgTag, pickFiles, guard, validHex, ICON, cropImage, fileFromPath } from '../ui.js';
-import { PTABS, LOOK, DEPTH, LINES, HABITS, WEAK, TASTE, DEFAULT_SLIDERS } from './profile.js';
+import { PTABS, LOOK, DEPTH, LINES, HABITS, WEAK, TASTE, DEFAULT_SLIDERS, DEFAULT_STATS } from './profile.js';
 
 export default async function profileEdit(el, pid, which) {
   const ctx = await loadPair(pid);
@@ -9,6 +9,7 @@ export default async function profileEdit(el, pid, which) {
   const p = structuredClone(c.profile || {});
   let tab = 'basic';
   let sliders = p.sliders?.length ? p.sliders.map((x) => ({ ...x })) : DEFAULT_SLIDERS.map((x) => ({ ...x }));
+  let stats = p.stats?.length ? p.stats.map((x) => ({ ...x })) : DEFAULT_STATS.map((x) => ({ ...x }));
   let history = (p.history || []).map((x) => ({ ...x }));
   let relations = (p.relations || []).map((x) => ({ ...x }));
   let outfits = (p.outfits || []).map((x) => ({ ...x }));
@@ -20,6 +21,14 @@ export default async function profileEdit(el, pid, which) {
   const fields = (list, base, obj = {}, opt = {}) => list.map(([k, l]) => field(l, `p.${base}.${k}`, obj[k], opt)).join('');
   const preview = (x) => (x.file ? `<img src="${URL.createObjectURL(x.file)}" alt="">` : x.image_path ? imgTag(x.image_path) : '');
 
+  const statRows = () => stats.map((s, i) => `
+    <div style="display:grid;grid-template-columns:60px 90px minmax(0,1fr) 50px 36px;gap:8px;align-items:center">
+      <input type="text" class="input" aria-label="코드" data-st="${i}" data-k="name" value="${esc(s.name)}" style="text-align:center;font-family:var(--game);font-size:12px">
+      <input type="text" class="input" aria-label="이름" data-st="${i}" data-k="label" value="${esc(s.label)}">
+      <input type="range" min="0" max="100" aria-label="수치" data-st="${i}" data-k="value" value="${s.value}" style="accent-color:${esc(c.color)}">
+      <span class="game" style="text-align:center;font-size:14px" data-stv="${i}">${s.value}</span>
+      <button type="button" class="icon-btn del" data-stx="${i}" aria-label="스탯 삭제">${ICON.x}</button>
+    </div>`).join('');
   const sliderRows = () => sliders.map((s, i) => `
     <div style="display:grid;grid-template-columns:110px minmax(0,1fr) 110px 36px;gap:10px;align-items:center">
       <input type="text" class="input" aria-label="왼쪽 라벨" data-sl="${i}" data-k="l" value="${esc(s.l)}" style="text-align:right">
@@ -73,7 +82,8 @@ export default async function profileEdit(el, pid, which) {
       </div>`),
     look: grp('외관', `<div class="grid2">${fields(LOOK, 'look', p.look, { area: true, rows: 2 })}</div>`)
       + grp('성격 — 깊이 순', `<div class="grid3">${fields(DEPTH, 'depth', p.depth, { area: true, rows: 4 })}</div>`)
-      + grp('성격 슬라이더', `<div id="sl" style="display:flex;flex-direction:column;gap:10px">${sliderRows()}</div><button type="button" class="btn dashed" data-add="sl" style="align-self:flex-start">+ 슬라이더 추가</button>`, '막대를 끌어서 정도를 조절해요'),
+      + grp('성격 슬라이더', `<div id="sl" style="display:flex;flex-direction:column;gap:10px">${sliderRows()}</div><button type="button" class="btn dashed" data-add="sl" style="align-self:flex-start">+ 슬라이더 추가</button>`, '막대를 끌어서 정도를 조절해요')
+      + grp('카드 스탯', `<div id="st" style="display:flex;flex-direction:column;gap:8px">${statRows()}</div><button type="button" class="btn dashed" data-add="st" style="align-self:flex-start">+ 스탯 추가</button>`, '트레이딩 카드에 표시되는 능력치예요 (0~100)'),
     voice: grp('상황별 대사', fields(LINES, 'lines', p.lines))
       + grp('버릇 · 습관', `<div class="grid3">${fields(HABITS, 'habits', p.habits, { area: true, rows: 2 })}</div>`)
       + grp('약점 · 트라우마', `<div class="grid3">${fields(WEAK, 'weak', p.weak, { area: true, rows: 2 })}</div>`),
@@ -123,18 +133,28 @@ export default async function profileEdit(el, pid, which) {
   // 목록 동기화 (DOM → 상태)
   const sync = () => {
     $$(el, '[data-sl]').forEach((i) => (sliders[i.dataset.sl][i.dataset.k] = i.dataset.k === 'v' ? Number(i.value) : i.value));
+    $$(el, '[data-st]').forEach((i) => {
+      const s = stats[i.dataset.st];
+      if (i.dataset.k === 'value') s.value = Math.min(100, Math.max(0, Number(i.value)));
+      else s[i.dataset.k] = i.value;
+    });
     $$(el, '[data-h]').forEach((i) => (history[i.dataset.h][i.dataset.k] = i.value));
     $$(el, '[data-r]').forEach((i) => (relations[i.dataset.r][i.dataset.k] = i.value));
     $$(el, '[data-o]').forEach((i) => (outfits[i.dataset.o].name = i.value));
   };
   const redraw = (id) => {
-    const map = { sl: sliderRows, hist: histRows, rels: relRows, outs: outfitRows };
+    const map = { sl: sliderRows, st: statRows, hist: histRows, rels: relRows, outs: outfitRows };
     $(el, '#' + id).innerHTML = map[id]();
     hydrate($(el, '#' + id));
     bindLists();
   };
   function bindLists() {
     $$(el, '[data-slx]').forEach((b) => (b.onclick = () => { sync(); sliders.splice(+b.dataset.slx, 1); redraw('sl'); }));
+    $$(el, '[data-stx]').forEach((b) => (b.onclick = () => { sync(); stats.splice(+b.dataset.stx, 1); redraw('st'); }));
+    $$(el, '[data-st][data-k=value]').forEach((inp) => (inp.oninput = () => {
+      const lbl = $(el, `[data-stv="${inp.dataset.st}"]`);
+      if (lbl) lbl.textContent = inp.value;
+    }));
     $$(el, '[data-hx]').forEach((b) => (b.onclick = () => { sync(); history.splice(+b.dataset.hx, 1); redraw('hist'); }));
     $$(el, '[data-rx]').forEach((b) => (b.onclick = () => { sync(); const [r] = relations.splice(+b.dataset.rx, 1); if (r.image_path) toDelete.push(r.image_path); redraw('rels'); }));
     $$(el, '[data-ox]').forEach((b) => (b.onclick = () => { sync(); const [o] = outfits.splice(+b.dataset.ox, 1); if (o.image_path) toDelete.push(o.image_path); redraw('outs'); }));
@@ -150,6 +170,7 @@ export default async function profileEdit(el, pid, which) {
   $$(el, '[data-add]').forEach((b) => (b.onclick = async () => {
     sync();
     const k = b.dataset.add;
+    if (k === 'st') stats.push({ name: '', label: '', value: 50 });
     if (k === 'sl') sliders.push({ l: '', r: '', v: 50 });
     if (k === 'hist') history.push({ when: '', what: '' });
     if (k === 'rels') relations.push({ name: '', label: '', note: '', image_path: null });
@@ -166,6 +187,7 @@ export default async function profileEdit(el, pid, which) {
       for (const list of [relations, outfits]) for (const x of list) if (x.file) { x.image_path = await upload(x.file); delete x.file; }
       const profile = {
         ...p, ...f.p,
+        stats: stats.filter((s) => s.label),
         sliders: sliders.filter((s) => s.l || s.r),
         history: history.filter((h) => h.when || h.what),
         relations: relations.filter((r) => r.name || r.note || r.image_path).map(({ file, ...r }) => r),
