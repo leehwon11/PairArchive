@@ -85,15 +85,15 @@ export default async function profile(el, pid, which, cached) {
             <div>${esc(s.r)}</div></div>`).join('')}
       </div>`,
     voice: `
-      <div class=”card”><h3>상황별 대사</h3>
-        ${LINES.map(([k, l]) => `<div class=”line-row”><div class=”muted”>${l}</div><div class=”say pre”>${p.lines?.[k] ? '”' + esc(p.lines[k]) + '”' : '<span class=”muted” style=”font-family:var(--body)”>—</span>'}</div></div>`).join('')}
+      <div class="card"><h3>상황별 대사</h3>
+        ${LINES.map(([k, l]) => `<div class="line-row"><div class="muted">${l}</div><div class="say pre">${p.lines?.[k] ? '“' + esc(p.lines[k]) + '”' : '<span class="muted" style="font-family:var(--body)">—</span>'}</div></div>`).join('')}
       </div>
-      <div class=”card”><h3>버릇 · 말투 · 특이사항</h3>
-        ${(p.quirks?.length) ? `<div class=”row” style=”gap:8px;flex-wrap:wrap”>${p.quirks.map((q) => `<span class=”badge quirk-tag” style=”background:${col};color:${ink(col)};font-size:14px;padding:6px 14px”>${esc(q)}</span>`).join('')}</div>` : '<div class=”muted”>프로필 수정 → 말투·습관에서 태그를 추가해보세요</div>'}
+      <div class="card"><h3>버릇 · 말투 · 특이사항</h3>
+        ${(p.quirks?.length) ? `<div class="row" style="gap:8px;flex-wrap:wrap">${p.quirks.map((q) => `<span class="badge quirk-tag" style="background:${col};color:${ink(col)};font-size:14px;padding:6px 14px">${esc(q)}</span>`).join('')}</div>` : '<div class="muted">프로필 수정 → 말투·습관에서 태그를 추가해보세요</div>'}
       </div>
-      <div class=”grid2”>
-        <div class=”card”><h3>버릇 · 습관 (상세)</h3>${kvList(HABITS, p.habits, 'var(--mute)')}</div>
-        <div class=”card”><h3>약점 · 트라우마</h3>${kvList(WEAK, p.weak, 'var(--mute)')}</div>
+      <div class="grid2">
+        <div class="card"><h3>버릇 · 습관 (상세)</h3>${kvList(HABITS, p.habits, 'var(--mute)')}</div>
+        <div class="card"><h3>약점 · 트라우마</h3>${kvList(WEAK, p.weak, 'var(--mute)')}</div>
       </div>`,
     taste: `
       <div class="grid2">
