@@ -1,6 +1,6 @@
 import { loadPair, update, upload, removeFile } from '../supa.js';
 import { esc, $, $$, field, readForm, hydrate, imgTag, pickFiles, guard, validHex, ICON, cropImage, fileFromPath } from '../ui.js';
-import { PTABS, LOOK, DEPTH, LINES, HABITS, WEAK, TASTE, DEFAULT_SLIDERS, DEFAULT_STATS } from './profile.js';
+import { PTABS, LOOK, DEPTH, LINES, HABITS, WEAK, TASTE, DEFAULT_SLIDERS, DEFAULT_STATS, QUIRK_PH } from './profile.js';
 
 export default async function profileEdit(el, pid, which) {
   const ctx = await loadPair(pid);
@@ -13,6 +13,7 @@ export default async function profileEdit(el, pid, which) {
   let history = (p.history || []).map((x) => ({ ...x }));
   let relations = (p.relations || []).map((x) => ({ ...x }));
   let outfits = (p.outfits || []).map((x) => ({ ...x }));
+  let quirks = [...(p.quirks || [])];
   let avatar = { path: c.image_path || null, file: null };
   const toDelete = [];
   const back = `#/pair/${pid}/profile/${which}`;
@@ -61,6 +62,8 @@ export default async function profileEdit(el, pid, which) {
       <button type="button" class="icon-btn del" data-ox="${i}" aria-label="의상 삭제">${ICON.x}</button></div>
     </div>`).join('');
 
+  const quirkTags = () => quirks.map((q, i) => `<span class="badge" style="background:${esc(c.color)};color:${ink(c.color)};font-size:14px;padding:6px 12px;gap:6px;display:inline-flex;align-items:center">${esc(q)}<button type="button" data-qx="${i}" aria-label="${esc(q)} 삭제" style="border:none;background:none;padding:0;cursor:pointer;font-size:16px;line-height:1;color:inherit;opacity:.7">×</button></span>`).join('');
+
   const panes = {
     basic: grp('기본 정보', `
       <div class="row" style="align-items:flex-start;gap:20px">
@@ -85,7 +88,8 @@ export default async function profileEdit(el, pid, which) {
       + grp('성격 슬라이더', `<div id="sl" style="display:flex;flex-direction:column;gap:10px">${sliderRows()}</div><button type="button" class="btn dashed" data-add="sl" style="align-self:flex-start">+ 슬라이더 추가</button>`, '막대를 끌어서 정도를 조절해요')
       + grp('카드 스탯', `<div id="st" style="display:flex;flex-direction:column;gap:8px">${statRows()}</div><button type="button" class="btn dashed" data-add="st" style="align-self:flex-start">+ 스탯 추가</button>`, '트레이딩 카드에 표시되는 능력치예요 (0~100)'),
     voice: grp('상황별 대사', fields(LINES, 'lines', p.lines))
-      + grp('버릇 · 습관', `<div class="grid3">${fields(HABITS, 'habits', p.habits, { area: true, rows: 2 })}</div>`)
+      + grp('버릇 · 말투 태그', `<div id="quirks" class="row" style="gap:8px;flex-wrap:wrap">${quirkTags()}</div><div class="row" style="gap:8px;margin-top:8px"><input id="quirk-input" type="text" class="input" placeholder="${esc(QUIRK_PH[Math.floor(Math.random() * QUIRK_PH.length)])}" style="flex:1;max-width:280px"><button type="button" class="btn" data-add="quirk">+ 추가</button></div>`, '"머리 만지는 버릇", "말끝에 ~거든" 같은 디테일을 태그로 달아보세요. Enter로도 추가돼요.')
+      + grp('버릇 · 습관 (상세)', `<div class="grid3">${fields(HABITS, 'habits', p.habits, { area: true, rows: 2 })}</div>`)
       + grp('약점 · 트라우마', `<div class="grid3">${fields(WEAK, 'weak', p.weak, { area: true, rows: 2 })}</div>`),
     taste: `<div class="grid2">${grp('좋아하는 것', fields(TASTE, 'like', p.like, { area: true, rows: 2 }))}${grp('싫어하는 것', fields(TASTE, 'dislike', p.dislike, { area: true, rows: 2 }))}</div>`,
     past: grp('과거사', `<div id="hist" style="display:flex;flex-direction:column;gap:12px">${histRows()}</div><button type="button" class="btn dashed" data-add="hist" style="align-self:flex-start">+ 과거사 추가</button>`, '위에서부터 시간 순서대로 보여요')
@@ -148,7 +152,20 @@ export default async function profileEdit(el, pid, which) {
     hydrate($(el, '#' + id));
     bindLists();
   };
+  const redrawQuirks = () => {
+    const qEl = $(el, '#quirks');
+    if (qEl) { qEl.innerHTML = quirkTags(); bindQuirks(); }
+  };
+  const addQuirk = () => {
+    const inp = $(el, '#quirk-input'); if (!inp) return;
+    const v = inp.value.trim(); if (!v || quirks.includes(v)) { inp.value = ''; return; }
+    quirks.push(v); inp.value = ''; redrawQuirks();
+  };
+  function bindQuirks() {
+    $$(el, '[data-qx]').forEach((b) => (b.onclick = () => { quirks.splice(+b.dataset.qx, 1); redrawQuirks(); }));
+  }
   function bindLists() {
+    bindQuirks();
     $$(el, '[data-slx]').forEach((b) => (b.onclick = () => { sync(); sliders.splice(+b.dataset.slx, 1); redraw('sl'); }));
     $$(el, '[data-stx]').forEach((b) => (b.onclick = () => { sync(); stats.splice(+b.dataset.stx, 1); redraw('st'); }));
     $$(el, '[data-st][data-k=value]').forEach((inp) => (inp.oninput = () => {
@@ -170,6 +187,7 @@ export default async function profileEdit(el, pid, which) {
   $$(el, '[data-add]').forEach((b) => (b.onclick = async () => {
     sync();
     const k = b.dataset.add;
+    if (k === 'quirk') { addQuirk(); return; }
     if (k === 'st') stats.push({ name: '', label: '', value: 50 });
     if (k === 'sl') sliders.push({ l: '', r: '', v: 50 });
     if (k === 'hist') history.push({ when: '', what: '' });
@@ -177,6 +195,7 @@ export default async function profileEdit(el, pid, which) {
     if (k === 'outs') { const files = await pickFiles({ multiple: true }); files.forEach((f) => outfits.push({ name: '', file: f })); }
     redraw(k);
   }));
+  $(el, '#quirk-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addQuirk(); } });
 
   $(el, '[data-act=save]').onclick = async (e) => {
     sync();
@@ -189,6 +208,7 @@ export default async function profileEdit(el, pid, which) {
         ...p, ...f.p,
         stats: stats.filter((s) => s.label),
         sliders: sliders.filter((s) => s.l || s.r),
+        quirks: quirks.filter(Boolean),
         history: history.filter((h) => h.when || h.what),
         relations: relations.filter((r) => r.name || r.note || r.image_path).map(({ file, ...r }) => r),
         outfits: outfits.filter((o) => o.image_path).map(({ file, ...o }) => o),
