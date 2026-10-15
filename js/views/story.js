@@ -39,7 +39,8 @@ export default async function story(el, pid) {
       }).join('')}</div>`
         : `<div class=”empty”><span class=”hand”>아직 서사가 없어요</span>첫만남부터 챕터로 하나씩 쌓아보세요.</div>`}`;
 
-    $(el, '[data-act=add]').onclick = () => edit();
+    const addBtn = $(el, '[data-act=add]');
+    if (addBtn) addBtn.onclick = () => edit();
     $$(el, '[data-act=edit]').forEach((btn) => (btn.onclick = () => edit(rows[+btn.dataset.i])));
     $$(el, '[data-act=del]').forEach((btn) => (btn.onclick = async () => {
       const r = rows[+btn.dataset.i];
@@ -82,9 +83,11 @@ export default async function story(el, pid) {
     m.el.querySelector('form').onsubmit = async (e) => {
       e.preventDefault();
       const f = readForm(e.target);
+      const mood = +f.mood;
+      delete f.mood;
       const saved = await guard(async () => {
         const ch = r ? await update('chapters', r.id, f) : await insert('chapters', { ...f, pair_id: pid, sort: rows.length });
-        d.chapterMoods[ch.id] = +f.mood;
+        d.chapterMoods[ch.id] = mood;
         await savePair();
         return ch;
       }, '저장했어요');
