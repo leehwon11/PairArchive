@@ -201,7 +201,7 @@ export function radarChart(stats, color, size = 200) {
 }
 
 // ── 무드 미니 차트 (SVG 라인) ──
-export function moodChart(moods, colA, colB, width = 600, height = 140) {
+export function moodChart(moods, colA, colB, width = 600, height = 140, lbls) {
   if (!moods.length) return '';
   const pad = { l: 36, r: 12, t: 16, b: 24 };
   const w = width - pad.l - pad.r, h = height - pad.t - pad.b;
@@ -211,8 +211,9 @@ export function moodChart(moods, colA, colB, width = 600, height = 140) {
   const line = moods.map((m, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(m.mood).toFixed(1)}`).join('');
   const yGuides = [1, 5, 10].map((v) => `<line x1="${pad.l}" y1="${y(v)}" x2="${width - pad.r}" y2="${y(v)}" stroke="var(--sh)" stroke-width="1"/><text x="${pad.l - 6}" y="${y(v)}" text-anchor="end" dominant-baseline="central" font-size="10" fill="var(--mute)">${v}</text>`).join('');
   const grad = `<defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${colA}"/><stop offset="100%" stop-color="${colB}"/></linearGradient></defs>`;
-  const dots = moods.map((m, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(m.mood).toFixed(1)}" r="5" fill="url(#mg)" stroke="#fff" stroke-width="2" data-mi="${i}"><title>${esc(m.date)} · ${m.mood}/10${m.note ? '\n' + m.note : ''}</title></circle>`).join('');
-  const labels = n <= 12 ? moods.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${height - 4}" text-anchor="middle" font-size="9" fill="var(--mute)">${m.date.slice(5)}</text>`).join('') : '';
+  const tips = lbls ? lbls : moods.map((m) => m.date);
+  const dots = moods.map((m, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(m.mood).toFixed(1)}" r="5" fill="url(#mg)" stroke="#fff" stroke-width="2" data-mi="${i}"><title>${esc(tips[i])} · ${m.mood}/10${m.note ? '\n' + m.note : ''}</title></circle>`).join('');
+  const labels = n <= 16 ? moods.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${height - 4}" text-anchor="middle" font-size="9" fill="var(--mute)">${esc(lbls ? lbls[i] : m.date.slice(5))}</text>`).join('') : '';
   return `<svg viewBox="0 0 ${width} ${height}" width="${width}" style="max-width:100%;height:auto">
     ${grad}${yGuides}
     <path d="${line}" fill="none" stroke="url(#mg)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>

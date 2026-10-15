@@ -7,6 +7,7 @@ export const LOOK = [['first', '첫인상'], ['hair', '머리카락'], ['eyes', 
 export const DEPTH = [['surface', '표면'], ['inner', '내면'], ['abyss', '심연']];
 export const LINES = [['first', '첫만남'], ['daily', '평상시'], ['close', '친해졌을 때'], ['angry', '화났을 때'], ['bad', '사이 안 좋을 때']];
 export const HABITS = [['speech', '말버릇'], ['unconscious', '무의식적인 행동'], ['routine', '생활 습관']];
+export const QUIRK_PH = ['머리 만지는 버릇', '말끝에 ~거든', '웃을 때 눈 감기', '혼잣말', '손톱 물어뜯기', '코 찡긋', '한숨 쉬는 습관'];
 export const WEAK = [['weak', '약점'], ['trigger', '트리거'], ['trauma', '트라우마']];
 export const TASTE = [
   ['food', '음식'], ['drink', '음료'], ['scent', '향'], ['color', '색'], ['season', '계절 · 날씨'],
@@ -84,12 +85,15 @@ export default async function profile(el, pid, which, cached) {
             <div>${esc(s.r)}</div></div>`).join('')}
       </div>`,
     voice: `
-      <div class="card"><h3>상황별 대사</h3>
-        ${LINES.map(([k, l]) => `<div class="line-row"><div class="muted">${l}</div><div class="say pre">${p.lines?.[k] ? '“' + esc(p.lines[k]) + '”' : '<span class="muted" style="font-family:var(--body)">—</span>'}</div></div>`).join('')}
+      <div class=”card”><h3>상황별 대사</h3>
+        ${LINES.map(([k, l]) => `<div class=”line-row”><div class=”muted”>${l}</div><div class=”say pre”>${p.lines?.[k] ? '”' + esc(p.lines[k]) + '”' : '<span class=”muted” style=”font-family:var(--body)”>—</span>'}</div></div>`).join('')}
       </div>
-      <div class="grid2">
-        <div class="card"><h3>버릇 · 습관</h3>${kvList(HABITS, p.habits, 'var(--mute)')}</div>
-        <div class="card"><h3>약점 · 트라우마</h3>${kvList(WEAK, p.weak, 'var(--mute)')}</div>
+      <div class=”card”><h3>버릇 · 말투 · 특이사항</h3>
+        ${(p.quirks?.length) ? `<div class=”row” style=”gap:8px;flex-wrap:wrap”>${p.quirks.map((q) => `<span class=”badge quirk-tag” style=”background:${col};color:${ink(col)};font-size:14px;padding:6px 14px”>${esc(q)}</span>`).join('')}</div>` : '<div class=”muted”>프로필 수정 → 말투·습관에서 태그를 추가해보세요</div>'}
+      </div>
+      <div class=”grid2”>
+        <div class=”card”><h3>버릇 · 습관 (상세)</h3>${kvList(HABITS, p.habits, 'var(--mute)')}</div>
+        <div class=”card”><h3>약점 · 트라우마</h3>${kvList(WEAK, p.weak, 'var(--mute)')}</div>
       </div>`,
     taste: `
       <div class="grid2">
