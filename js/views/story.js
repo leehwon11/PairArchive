@@ -1,5 +1,5 @@
 import { loadPair, list, insert, update, remove } from '../supa.js';
-import { esc, $, iconBtn, openModal, field, readForm, confirmBox, guard, md, enableDragSort, moodChart } from '../ui.js';
+import { esc, $, $$, iconBtn, openModal, field, readForm, confirmBox, guard, md, enableDragSort, moodChart } from '../ui.js';
 import { tabs, subHeader } from './shared.js';
 
 export default async function story(el, pid) {
@@ -39,6 +39,19 @@ export default async function story(el, pid) {
       }).join('')}</div>`
         : `<div class=”empty”><span class=”hand”>아직 서사가 없어요</span>첫만남부터 챕터로 하나씩 쌓아보세요.</div>`}`;
 
+    $(el, '[data-act=add]').onclick = () => edit();
+    $$(el, '[data-act=edit]').forEach((btn) => (btn.onclick = () => edit(rows[+btn.dataset.i])));
+    $$(el, '[data-act=del]').forEach((btn) => (btn.onclick = async () => {
+      const r = rows[+btn.dataset.i];
+      if (!(await confirmBox('챕터 삭제', `”${r.title || '제목 없음'}” 챕터를 지울까요?`))) return;
+      await guard(async () => {
+        await remove('chapters', r.id);
+        delete d.chapterMoods[r.id];
+        await savePair();
+        rows = rows.filter((x) => x !== r);
+        draw();
+      }, '삭제했어요');
+    }));
     const chList = $(el, '#ch-list');
     if (chList) enableDragSort(chList, '.drag-item', async (order) => {
       rows = order.map((i) => rows[i]);
@@ -46,27 +59,6 @@ export default async function story(el, pid) {
       await guard(() => Promise.all(rows.map((r, k) => (r.sort !== k ? update('chapters', r.id, { sort: (r.sort = k) }) : null))));
     });
   };
-
-  el.addEventListener('click', (e) => {
-    const add = e.target.closest('[data-act=add]');
-    if (add) { edit(); return; }
-    const ed = e.target.closest('[data-act=edit]');
-    if (ed) { edit(rows[+ed.dataset.i]); return; }
-    const del = e.target.closest('[data-act=del]');
-    if (del) {
-      const r = rows[+del.dataset.i];
-      confirmBox('챕터 삭제', `”${r.title || '제목 없음'}” 챕터를 지울까요?`).then(async (ok) => {
-        if (!ok) return;
-        await guard(async () => {
-          await remove('chapters', r.id);
-          delete d.chapterMoods[r.id];
-          await savePair();
-          rows = rows.filter((x) => x !== r);
-          draw();
-        }, '삭제했어요');
-      });
-    }
-  });
 
   function edit(r) {
     const curMood = r ? (d.chapterMoods[r.id] || 5) : 5;
