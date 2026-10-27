@@ -1,5 +1,5 @@
 import { loadPair, latest, remove, removeFile, update } from '../supa.js';
-import { esc, $, $$, hydrate, imgTag, dday, confirmBox, guard, ink, themeBtn, HEART, toast, openModal } from '../ui.js';
+import { esc, $, $$, hydrate, imgTag, dday, confirmBox, guard, ink, themeBtn, HEART, toast, openModal, josa } from '../ui.js';
 import { tabs } from './shared.js';
 
 export default async function pairView(el, pid) {
@@ -81,8 +81,8 @@ export default async function pairView(el, pid) {
       </div>
     </section>
     <div class="grid2">
-      ${seen(`${esc(a.name)}가 본 ${esc(b.name)}`, d.a, '#8a2f42', a.color + '55')}
-      ${seen(`${esc(b.name)}가 본 ${esc(a.name)}`, d.b, '#3f6283', b.color + '55')}
+      ${seen(`${esc(a.name)}${josa(a.name, '이', '가')} 본 ${esc(b.name)}`, d.a, '#8a2f42', a.color + '55')}
+      ${seen(`${esc(b.name)}${josa(b.name, '이', '가')} 본 ${esc(a.name)}`, d.b, '#3f6283', b.color + '55')}
     </div>
     <div class="grid2">
       <div class="card">
