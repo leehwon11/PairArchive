@@ -1,5 +1,5 @@
 import { loadPair, list, insert, update, remove } from '../supa.js';
-import { esc, $, $$, iconBtn, openModal, field, readForm, confirmBox, guard, md, enableDragSort, moodChart } from '../ui.js';
+import { esc, $, $$, iconBtn, openModal, field, readForm, confirmBox, guard, md, enableDragSort, moodChart, toast } from '../ui.js';
 import { tabs, subHeader } from './shared.js';
 
 export default async function story(el, pid) {
@@ -8,9 +8,12 @@ export default async function story(el, pid) {
   const { pair, a, b } = ctx;
   const d = pair.detail || (pair.detail = {});
   d.chapterMoods ||= {};
+  d.clues ||= [];
   let rows = await list('chapters', { pair_id: pid }, 'sort', true);
   const savePair = () => update('pairs', pid, { detail: d });
 
+  const clueById = (id) => d.clues.find((c) => c.id === id);
+  const solved = (chId) => d.clues.filter((c) => c.done && c.ch === chId);
   const moodData = () => rows.map((r) => ({ mood: d.chapterMoods[r.id] || 0 })).filter((m) => m.mood > 0);
   const moodLabels = () => rows.map((r, i) => `${i + 1}장`).filter((_, i) => (d.chapterMoods[rows[i]?.id] || 0) > 0);
 
@@ -35,9 +38,11 @@ export default async function story(el, pid) {
             ${iconBtn('del', '챕터 삭제', 'del', 'del', `data-i="${i}"`)}
           </div>
           <div style="font-size:15px;line-height:1.9">${md(r.body)}</div>
+          ${solved(r.id).length ? `<div class="muted" style="font-size:13px">회수한 떡밥 · ${solved(r.id).map((c) => esc(c.text)).join(' / ')}</div>` : ''}
         </article>`;
       }).join('')}</div>`
-        : `<div class="empty"><span class="hand">아직 서사가 없어요</span>첫만남부터 챕터로 하나씩 쌓아보세요.</div>`}`;
+        : `<div class="empty"><span class="hand">아직 서사가 없어요</span>첫만남부터 챕터로 하나씩 쌓아보세요.</div>`}
+      ${clueSection()}`;
 
     $(el, '[data-act=add]').onclick = () => edit();
     $$(el, '[data-act=edit]').forEach((btn) => (btn.onclick = () => edit(rows[+btn.dataset.i])));
@@ -47,10 +52,26 @@ export default async function story(el, pid) {
       await guard(async () => {
         await remove('chapters', r.id);
         delete d.chapterMoods[r.id];
+        d.clues.forEach((c) => { if (c.ch === r.id) c.ch = ''; });
         await savePair();
         rows = rows.filter((x) => x !== r);
         draw();
       }, '삭제했어요');
+    }));
+    $(el, '[data-act=clue-add]').onclick = () => editClue();
+    $$(el, '[data-act=clue-edit]').forEach((btn) => (btn.onclick = () => editClue(clueById(btn.dataset.id))));
+    $$(el, '[data-act=clue-del]').forEach((btn) => (btn.onclick = async () => {
+      const c = clueById(btn.dataset.id);
+      if (!(await confirmBox('떡밥 삭제', `“${c.text}” 떡밥을 지울까요?`))) return;
+      d.clues = d.clues.filter((x) => x !== c);
+      if (await guard(savePair, '삭제했어요')) draw();
+    }));
+    $$(el, '[data-clue-done]').forEach((box) => (box.onchange = async () => {
+      const c = clueById(box.dataset.clueDone);
+      c.done = box.checked;
+      if (!c.done) c.ch = '';
+      await guard(savePair);
+      draw();
     }));
     const chList = $(el, '#ch-list');
     if (chList) enableDragSort(chList, '.drag-item', async (order) => {
@@ -59,6 +80,53 @@ export default async function story(el, pid) {
       await guard(() => Promise.all(rows.map((r, k) => (r.sort !== k ? update('chapters', r.id, { sort: (r.sort = k) }) : null))));
     });
   };
+
+  function clueSection() {
+    const sorted = [...d.clues.filter((c) => !c.done), ...d.clues.filter((c) => c.done)];
+    const left = d.clues.filter((c) => !c.done).length;
+    return `<section class="card">
+      <div class="row"><h3 class="grow">떡밥 · 복선</h3>${d.clues.length ? `<span class="muted">${left}개 남음</span>` : ''}<button class="btn" data-act="clue-add">+ 떡밥</button></div>
+      ${sorted.length ? sorted.map((c) => {
+        const at = rows.findIndex((r) => r.id === c.ch);
+        return `<div class="row" style="flex-wrap:nowrap;gap:8px">
+          <input type="checkbox" data-clue-done="${c.id}" ${c.done ? 'checked' : ''} aria-label="회수함" style="width:20px;height:20px;flex-shrink:0;accent-color:var(--accent)">
+          <div class="grow" style="min-width:0">
+            <div class="pre" style="font-size:15px;${c.done ? 'text-decoration:line-through;color:var(--mute)' : ''}">${esc(c.text)}</div>
+            ${at >= 0 ? `<span class="badge" style="margin-top:4px">${at + 1}장에서 회수</span>` : ''}
+          </div>
+          ${iconBtn('clue-edit', '떡밥 수정', 'edit', '', `data-id="${c.id}"`)}
+          ${iconBtn('clue-del', '떡밥 삭제', 'del', 'del', `data-id="${c.id}"`)}
+        </div>`;
+      }).join('') : '<div class="muted">나중에 풀 설정이나 복선을 적어두고, 풀리면 체크하세요.</div>'}
+    </section>`;
+  }
+
+  function editClue(c) {
+    const m = openModal(`
+      <h2>${c ? '떡밥 수정' : '새 떡밥'}</h2>
+      <form style="display:flex;flex-direction:column;gap:12px">
+        ${field('내용', 'text', c?.text, { area: true, rows: 3, ph: '예: 그날 왜 약속에 안 나왔는지' })}
+        <div class="field"><label for="clue-ch">회수한 챕터</label>
+          <select id="clue-ch" name="ch"><option value="">아직 안 풀림</option>${rows.map((r, i) => `<option value="${r.id}" ${c?.ch === r.id ? 'selected' : ''}>${i + 1}장 · ${esc(r.title || '제목 없음')}</option>`).join('')}</select>
+        </div>
+        <label class="row" style="gap:8px"><input type="checkbox" id="clue-done" ${c?.done ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)"> 회수함</label>
+        <div class="row" style="justify-content:flex-end"><button type="button" class="btn" data-x>취소</button><button class="btn primary">저장</button></div>
+      </form>`);
+    const done = m.el.querySelector('#clue-done');
+    m.el.querySelector('#clue-ch').onchange = (e) => { if (e.target.value) done.checked = true; };
+    m.el.querySelector('[data-x]').onclick = m.close;
+    m.el.querySelector('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = readForm(e.target);
+      if (!f.text) return toast('내용을 적어주세요');
+      const next = { id: c?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: f.text, ch: f.ch, done: done.checked || !!f.ch };
+      if (!next.done) next.ch = '';
+      const prev = d.clues;
+      d.clues = c ? d.clues.map((x) => (x === c ? next : x)) : [...d.clues, next];
+      if (!(await guard(savePair, '저장했어요'))) { d.clues = prev; return; }
+      m.close(); draw();
+    };
+  }
 
   function edit(r) {
     const curMood = r ? (d.chapterMoods[r.id] || 5) : 5;

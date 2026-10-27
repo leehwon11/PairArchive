@@ -18,6 +18,7 @@ export default async function pairView(el, pid) {
   const seen = (title, v = {}, col, tint) => `
     <div class="card">
       <h3>${title}</h3>
+      ${v.nick ? `<div class="kv"><b>부르는 호칭</b> · ${esc(v.nick)}</div>` : ''}
       <div class="row" style="align-items:stretch;flex-wrap:nowrap">
         <div class="grow" style="background:var(--soft);border-radius:6px;padding:10px 12px;font-size:14px"><b>첫인상</b><br><span class="pre">${esc(v.first || '—')}</span></div>
         <div style="align-self:center;color:${col};font-size:20px" aria-hidden="true">→</div>
@@ -96,6 +97,10 @@ export default async function pairView(el, pid) {
         ${days ? `<div class="row" style="align-items:baseline;gap:8px"><div class="hand" style="font-size:42px;color:var(--wine)">D+${days}</div><div class="muted">${esc(pair.start_date)}부터</div></div>` : '<div class="muted">페어 시작일을 넣으면 D+가 자동으로 세어져요</div>'}
         ${(d.anniversaries || []).map((x) => `<div class="kv"><b>${esc(x.date)}</b> · ${esc(x.label)}</div>`).join('')}
       </div>
+    </div>
+    <div class="card">
+      <h3>장소 · 상징물</h3>
+      ${(d.places || []).length ? d.places.map((x) => `<div class="kv"><span class="badge">${esc(x.kind || '장소')}</span> <b>${esc(x.name)}</b>${x.note ? ' · ' + esc(x.note) : ''}</div>`).join('') : '<span class="muted">페어 수정에서 추가할 수 있어요</span>'}
     </div>
     <div class="card" style="flex-direction:row;align-items:center;gap:20px;flex-wrap:wrap">
       <div><h3>최근 기록</h3><div class="muted">자동으로 모아져요</div></div>
