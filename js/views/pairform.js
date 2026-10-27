@@ -1,7 +1,7 @@
 import { insert, update, loadPair, upload, removeFile } from '../supa.js';
 import { esc, $, $$, field, readForm, hydrate, imgTag, pickFiles, guard, validHex, ICON, cropImage, fileFromPath } from '../ui.js';
 
-export const NICK = [['daily', '평소'], ['sweet', '다정할 때'], ['angry', '화났을 때'], ['public', '남들 앞에서'], ['tease', '장난칠 때'], ['inner', '속으로']];
+export const PLACE_KINDS = ['장소', '물건'];
 
 export default async function pairForm(el, id) {
   const ctx = id ? await loadPair(id) : null;
@@ -13,6 +13,7 @@ export default async function pairForm(el, id) {
   const newImg = { a: null, b: null };
   let kind = pair.kind;
   let annis = [...(d.anniversaries || [])];
+  let places = (d.places || []).map((x) => ({ ...x }));
 
   const charBox = (k, c, bg) => `
     <div class="card" style="background:${bg};box-shadow:none">
@@ -28,19 +29,22 @@ export default async function pairForm(el, id) {
       </div>
     </div>`;
 
-  const view = (who, v = {}) => `
+  const view = (key, who, v = {}) => `
     <div class="card" style="box-shadow:none;background:var(--paper)">
       <h3>${who}</h3>
-      ${field('첫인상', `${who === 'A가 본 B' ? 'va' : 'vb'}.first`, v.first, { area: true, rows: 2 })}
-      ${field('현인상', `${who === 'A가 본 B' ? 'va' : 'vb'}.now`, v.now, { area: true, rows: 2 })}
-      ${field('속마음', `${who === 'A가 본 B' ? 'va' : 'vb'}.thought`, v.thought, { area: true, rows: 3 })}
+      ${field('부르는 호칭', `${key}.nick`, v.nick, { ph: '예: 선배, 야, 도훈아' })}
+      ${field('첫인상', `${key}.first`, v.first, { area: true, rows: 2 })}
+      ${field('현인상', `${key}.now`, v.now, { area: true, rows: 2 })}
+      ${field('속마음', `${key}.thought`, v.thought, { area: true, rows: 3 })}
     </div>`;
 
-  const nick = (key, title, v = {}) => `
-    <div class="card" style="box-shadow:none;background:var(--paper)">
-      <h3>${title}</h3>
-      <div class="grid2" style="gap:12px">${NICK.map(([k, l]) => field(l, `nick.${key}.${k}`, v[k])).join('')}</div>
-    </div>`;
+  const placeRows = () => places.map((x, i) => `
+    <div class="row" style="align-items:flex-end">
+      <div class="field"><label for="pk${i}">종류</label><select id="pk${i}" data-pl="${i}" data-k="kind">${PLACE_KINDS.map((k) => `<option ${x.kind === k ? 'selected' : ''}>${k}</option>`).join('')}</select></div>
+      <div class="field"><label for="pn${i}">이름</label><input id="pn${i}" type="text" data-pl="${i}" data-k="name" value="${esc(x.name)}"></div>
+      <div class="field grow"><label for="pm${i}">어떤 의미인지</label><input id="pm${i}" type="text" data-pl="${i}" data-k="note" value="${esc(x.note)}"></div>
+      <button type="button" class="icon-btn del" data-plx="${i}" aria-label="장소·상징물 삭제">${ICON.x}</button>
+    </div>`).join('');
 
   const annRows = () => annis.map((x, i) => `
     <div class="row" style="align-items:flex-end">
@@ -80,7 +84,7 @@ export default async function pairForm(el, id) {
       <div class="grid2">${charBox('a', a, '#fbeeed')}${charBox('b', b, '#e8f1f7')}</div>
 
       <h2 class="section-title">서로를 어떻게 보는지</h2>
-      <div class="grid2">${view('A가 본 B', d.a)}${view('B가 본 A', d.b)}</div>
+      <div class="grid2">${view('va', 'A가 본 B', d.a)}${view('vb', 'B가 본 A', d.b)}</div>
 
       <h2 class="section-title">STATUS 대사 스크립트</h2>
       <p class="muted" style="margin:-6px 0 0">STATUS 화면 대화창에서 위에서부터 차례로 나와요. 비워두면 관계 요약(나레이션) → A 대표 대사 → B 대표 대사로 나와요.</p>
@@ -94,6 +98,11 @@ export default async function pairForm(el, id) {
       </div>
       <div class="field"><span class="muted">기념일</span><div id="anns" style="display:flex;flex-direction:column;gap:10px">${annRows()}</div>
         <button type="button" class="btn dashed" data-act="ann" style="align-self:flex-start">+ 기념일 추가</button></div>
+
+      <h2 class="section-title">장소 · 상징물</h2>
+      <p class="muted" style="margin:-6px 0 0">둘에게 의미 있는 장소나 물건이에요. 첫만남 장소, 커플템, 서로 준 선물 같은 것.</p>
+      <div id="places" style="display:flex;flex-direction:column;gap:10px">${placeRows()}</div>
+      <button type="button" class="btn dashed" data-act="place" style="align-self:flex-start">+ 장소 · 상징물 추가</button>
 
       <div class="row" style="justify-content:flex-end">
         <a class="btn" href="${id ? '#/pair/' + id : '#/'}">취소</a>
@@ -128,6 +137,10 @@ export default async function pairForm(el, id) {
   const syncAnn = () => $$(el, '[data-ann]').forEach((i) => (annis[i.dataset.ann][i.dataset.k] = i.value));
   const bindAnn = () => $$(el, '[data-annx]').forEach((x) => (x.onclick = () => { syncAnn(); annis.splice(+x.dataset.annx, 1); $(el, '#anns').innerHTML = annRows(); bindAnn(); }));
   bindAnn();
+  const syncPl = () => $$(el, '[data-pl]').forEach((i) => (places[i.dataset.pl][i.dataset.k] = i.value));
+  const drawPl = () => { $(el, '#places').innerHTML = placeRows(); $$(el, '[data-plx]').forEach((x) => (x.onclick = () => { syncPl(); places.splice(+x.dataset.plx, 1); drawPl(); })); };
+  drawPl();
+  $(el, '[data-act=place]').onclick = () => { syncPl(); places.push({ kind: '장소', name: '', note: '' }); drawPl(); $$(el, '[data-k=name][data-pl]').at(-1)?.focus(); };
   const syncSc = () => $$(el, '[data-sc]').forEach((i) => (script[i.dataset.sc][i.dataset.k] = i.value));
   const drawSc = () => { $(el, '#script').innerHTML = scRows(); bindSc(); };
   function bindSc() {
@@ -140,7 +153,7 @@ export default async function pairForm(el, id) {
 
   $(el, '#pf').onsubmit = async (e) => {
     e.preventDefault();
-    syncAnn();
+    syncAnn(); syncPl();
     const f = readForm($(el, '#pf'));
     for (const k of ['a', 'b']) if (!validHex(f['c' + k].color)) f['c' + k].color = k === 'a' ? '#f2c6c2' : '#cfe0ec';
     const btn = $(el, '[type=submit]'); btn.disabled = true;
@@ -148,7 +161,7 @@ export default async function pairForm(el, id) {
       for (const k of ['a', 'b']) if (newImg[k]) { if (img[k]) await removeFile(img[k]); img[k] = await upload(newImg[k]); }
       const charRow = (k, c) => ({ name: f['c' + k].name || k.toUpperCase(), color: f['c' + k].color, image_path: img[k], profile: c.profile || {} });
       syncSc();
-      const detail = { ...d, name: f.pairname, a: f.va, b: f.vb, keywords: f.keywords, song: f.song, anniversaries: annis.filter((x) => x.date || x.label), script: script.filter((x) => x.text.trim()) };
+      const detail = { ...d, name: f.pairname, a: f.va, b: f.vb, keywords: f.keywords, song: f.song, anniversaries: annis.filter((x) => x.date || x.label), places: places.filter((x) => x.name.trim() || x.note.trim()), script: script.filter((x) => x.text.trim()) };
       const row = { kind, genre: kind === '드림' ? f.genre : '', summary: f.summary, start_date: f.start_date || null, detail };
       if (id) {
         await update('characters', a.id, charRow('a', a));
