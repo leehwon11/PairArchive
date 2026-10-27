@@ -1,5 +1,5 @@
 import { loadPair } from '../supa.js';
-import { esc, hydrate, imgTag, ink } from '../ui.js';
+import { esc, hydrate, imgTag, ink, josa } from '../ui.js';
 import { tabs, subHeader } from './shared.js';
 import { TASTE } from './profile.js';
 
@@ -51,7 +51,7 @@ export default async function compare(el, pid) {
   const clash = [];
   for (const [k, l] of TASTE) {
     for (const [p, q, n1, n2] of [[pa, pb, a.name, b.name], [pb, pa, b.name, a.name]]) {
-      tokens(p.like?.[k]).forEach((x) => { if (tokens(q.dislike?.[k]).some((y) => y.toLowerCase() === x.toLowerCase())) clash.push(`${l} · <b>${esc(x)}</b> — ${esc(n1)}는 좋아하고 ${esc(n2)}는 싫어해요`); });
+      tokens(p.like?.[k]).forEach((x) => { if (tokens(q.dislike?.[k]).some((y) => y.toLowerCase() === x.toLowerCase())) clash.push(`${l} · <b>${esc(x)}</b> — ${esc(n1)}${josa(n1, '은', '는')} 좋아하고 ${esc(n2)}${josa(n2, '은', '는')} 싫어해요`); });
     }
   }
 

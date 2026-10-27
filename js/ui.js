@@ -141,6 +141,15 @@ export function md(text) {
 }
 export const has = (...v) => v.some((x) => x && String(x).trim());
 
+// 받침 유무로 조사 고르기: josa('현도훈', '이', '가') → '이'. 한글·숫자가 아닌 끝 글자는 '이(가)'
+export function josa(word, withFinal, withoutFinal) {
+  const last = String(word ?? '').trim().slice(-1);
+  const code = last.charCodeAt(0) - 0xac00;
+  if (code >= 0 && code <= 11171) return code % 28 ? withFinal : withoutFinal;
+  if (/[0-9]/.test(last)) return '013678'.includes(last) ? withFinal : withoutFinal;
+  return `${withFinal}(${withoutFinal})`;
+}
+
 // ── 배경 테마 (파스텔) ──
 export const THEMES = [
   ['lavender', '라벤더', { bg: '#f4eefb', dot: '#e6dcf5', soft: '#ece3f8', sh: '#d9cfee', accent: '#7a5cc7', 'accent-dk': '#5d42a8', field: '#fbf9ff' }],
